@@ -3,9 +3,8 @@
 #ifndef LocalWrapping_h
 #define LocalWrapping_h
 
-
 #include"Common.h"
-
+//¼ÇÂ¼±ß½çÎ»ÖÃ
 enum Border {
 	BORDER_TOP = 0,
 	BORDER_BOTTOM = 1,

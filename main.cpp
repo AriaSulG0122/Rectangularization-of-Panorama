@@ -4,13 +4,18 @@
 #include "lsd.h"
 #include <GL\freeglut.h>
 #include<cmath>
+
+#include <iomanip>
+#include <opencv2\highgui\highgui.hpp>
+using namespace cv;
+
 #define WindowTitle  "OpenGL纹理测试"
 #define GL_BGR_EXT 0x80E0
 #define GL_BGRA_EXT 0x80E1
 GLuint texGround;
 vector<vector<CoordinateDouble>> outputmesh;
 vector<vector<CoordinateDouble>> mesh;
-CVMat img;
+CVMat img;//记录图像
 GLuint matToTexture(cv::Mat mat, GLenum minFilter = GL_LINEAR,
 	GLenum magFilter = GL_LINEAR, GLenum wrapFilter = GL_REPEAT) {
 	//cv::flip(mat, mat, 0);
@@ -142,28 +147,63 @@ void display(void){
 	*/
 	glutSwapBuffers();
 }
+void printMat(CVMat mat, int prec) 
+{  
+    for(int i=0; i<mat.size().height; i++) 
+    { 
+     cout << "["; 
+     for(int j=0; j<mat.size().width; j++) 
+     { 
+      cout << setprecision(prec) << mat.at<double>(i,j); 
+      if(j != mat.size().width-1) 
+       cout << ", "; 
+      else 
+       cout << "]" << endl; 
+     } 
+    } 
+} 
 int main(int argc, char* argv[]) {
-	img = cv::imread("C:\\users\\33712\\Desktop\\rectangle-panoramic-image-master\\Rectangling_Panoramic\\testimg\\2.jpg");
-	
-
+	//读取图片
+	img = cv::imread("C:\\users\\33712\\Desktop\\MyRectangle\\MyRectangle\\testimg\\2.jpg");
+	//记录起始时间
 	double Time = (double)cvGetTickCount();
 	//cv::resize(img, img, cv::Size(0, 0), 0.5, 0.5);
+	//记录缩放后的图像
 	CVMat scaled_img;
+	//对图像进行缩放
 	cv::resize(img, scaled_img, cv::Size(0, 0), 0.5, 0.5);
-
+	//记录缩放后图像的行列数以及网格线数
 	Config config(scaled_img.rows,scaled_img.cols,20,20);
+	//获取遮罩图像
 	CVMat mask = Mask_contour(scaled_img);
 	CVMat tmpmask;
 	mask.copyTo(tmpmask);
+	//**输出遮罩图像信息
+	//printMat(tmpmask, 3);//输出图像的矩阵信息
+    //namedWindow("MyTempMask", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
+    //imshow("MyTempMask", tmpmask);//在MyWindow的窗中中显示存储在img中的图片
+    //waitKey(0);//等待直到有键按下
+    //destroyWindow("MyTempMask");//销毁MyWindow的窗口
+	
 	CVMat wrapped_img = CVMat::zeros(scaled_img.size(), CV_8UC3);
-
+	//*****进行Local Warpping，同时获取到最终的偏移量矩阵，这将用于warp back
 	vector<vector<Coordinate>> displacementMap = Local_wrap(scaled_img,wrapped_img,tmpmask);
+	//**输出seam carving图像信息
+	//namedWindow("MyWarppedImage", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
+    //imshow("MyWarppedImage", wrapped_img);//在MyWindow的窗中中显示存储在img中的图片
+    //waitKey(0);//等待直到有键按下
+    //destroyWindow("MyWarppedImage");//销毁MyWindow的窗口
+	
+	//获取经过local warpping后的每个网格点的坐标
 	mesh = get_rectangle_mesh(scaled_img,config);
+	
 	//drawmesh(wrapped_img, mesh, config);
 	//system("pasue");
+	
+	//进行warp back，得到原始图像的网格点信息
 	wrap_mesh_back(mesh,displacementMap,config);
 	
-	cout << "wrap back"<<endl;
+	cout << "Finish wrap back"<<endl;
 
 	SpareseMatrixD_Row shape_energy = get_shape_mat(mesh,config);
 	cout << "get shape energy"<<endl;

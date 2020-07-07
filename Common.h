@@ -2,7 +2,7 @@
 #ifndef Common_h
 #define Common_h
 
-#define INF 1e8
+#define INF 1e8   //infinite
 #define PI 3.14159265358979323846
 
 #include <opencv2/highgui/highgui.hpp>
@@ -16,10 +16,10 @@
 #include<cmath>
 #include<Eigen/Dense>
 
-typedef cv::Mat CVMat;
-typedef cv::Vec3b colorPixel;
+typedef cv::Mat CVMat;//CV图像
+typedef cv::Vec3b colorPixel;//三色像素
 
-typedef Eigen::SparseMatrix<double> SparseMatrixD;
+typedef Eigen::SparseMatrix<double> SparseMatrixD;//稀疏矩阵
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor> SpareseMatrixD_Row;
 typedef Eigen::VectorXd VectorXd;
 typedef Eigen::MatrixXd MatrixXd;
@@ -33,14 +33,15 @@ typedef Eigen::SimplicialCholesky<SparseMatrixD> CSolve;
 using namespace std;
 
 struct Config {//运行前配置
-	int rows;
-	int cols;
-	int meshNumRow;
-	int meshNumCol;
-	int meshQuadRow;
-	int meshQuadCol;
-	double rowPermesh;
-	double colPermesh;
+	int rows;//行数
+	int cols;//列数
+	int meshNumRow;//网格线行数
+	int meshNumCol;//网格线列数
+	int meshQuadRow;//网格行数
+	int meshQuadCol;//网格列数
+	double rowPermesh;//每个网格的行数
+	double colPermesh;//每个网格的列数
+	//构造函数
 	Config(int rows, int cols, int meshNumRow, int meshNumCol) {
 		this->rows = rows;
 		this->cols = cols;
@@ -53,13 +54,16 @@ struct Config {//运行前配置
 	}
 };
 
+//坐标轴（整形）
 struct Coordinate {
-	int row;
-	int col;
+	int row;//行坐标
+	int col;//列坐标
 
+	//重写坐标相等
 	bool operator==(const Coordinate& rhs) const {
 		return (row == rhs.row && col == rhs.col);
 	}
+	//重写坐标小于
 	bool operator<(const Coordinate& rhs) const {
 		// this operator is used to determine equality, so it must use both x and y
 		if (row < rhs.row) {
@@ -70,17 +74,19 @@ struct Coordinate {
 		}
 		return col < rhs.col;
 	}
+	//构造函数
 	Coordinate() { row = 0; col = 0; };
 	Coordinate(int setRow, int setCol) { row = setRow; col = setCol; };
 };
-
+//坐标轴（浮点型）
 struct CoordinateDouble {
-	double row;
-	double col;
-
+	double row;//行数
+	double col;//列数
+	//重写坐标相等
 	bool operator==(const CoordinateDouble& rhs) const {
 		return (row == rhs.row && col == rhs.col);
 	}
+	//重写坐标小于
 	bool operator<(const CoordinateDouble& rhs) const {
 		// this operator is used to determine equality, so it must use both x and y
 		if (row < rhs.row) {
@@ -91,10 +97,12 @@ struct CoordinateDouble {
 		}
 		return col < rhs.col;
 	}
+	//重写坐标输出
 	friend ostream &operator<<(ostream &stream, const CoordinateDouble &p){
 		stream << "("<<p.col<<","<<p.row<<")";
 		return stream;
 	}
+	//构造函数
 	CoordinateDouble() { row = 0; col = 0; };
 	CoordinateDouble(double setRow, double setCol) { row = setRow; col = setCol; };
 };
@@ -110,7 +118,6 @@ struct LineD {
 	}
 	LineD() { row1 = 0; col1 = 0; row2 = 0; col2 = 0; }
 	LineD(CoordinateDouble p1, CoordinateDouble p2) { row1 = p1.row; row2 = p2.row; col1 = p1.col; col2 = p2.col; }
-
 };
 
 CVMat Mask_contour(CVMat src);

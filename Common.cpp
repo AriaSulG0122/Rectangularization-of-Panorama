@@ -4,7 +4,7 @@ void fillHole(const CVMat srcBw, CVMat &dstBw) {
 	cv::Size m_Size = srcBw.size();
 	CVMat Temp = CVMat::zeros(m_Size.height + 2, m_Size.width + 2, srcBw.type());//延展图像  
 	srcBw.copyTo(Temp(cv::Range::Range(1, m_Size.height + 1), cv::Range::Range(1, m_Size.width + 1)));
-
+	//从原点开始进行满水填充
 	cv::floodFill(Temp, cv::Point(0, 0), cv::Scalar(255));
 
 	CVMat cutImg;//裁剪延展的图像  
@@ -15,10 +15,11 @@ void fillHole(const CVMat srcBw, CVMat &dstBw) {
 
 CVMat Mask_contour(CVMat src) {
 	CVMat bw;
+	//将三色图转为灰度图
 	cv::cvtColor(src, src, CV_BGR2GRAY);
 	
-
 	uchar thr = 252;
+	//创建mask图像
 	CVMat mask = CVMat::zeros(src.size(), CV_8UC1);
 	for (int row = 0; row < src.rows; row++) {
 		for (int col = 0; col < src.cols; col++) {
