@@ -202,23 +202,23 @@ int main(int argc, char* argv[]) {
 	
 	//进行warp back，得到原始图像的网格点信息
 	wrap_mesh_back(mesh,displacementMap,config);
-	
-	cout << "Finish wrap back"<<endl;
+	cout << "Finish wrap back. Begin global warpping."<<endl;
 
+	//计算每个网格点的shape energy属性
 	SpareseMatrixD_Row shape_energy = get_shape_mat(mesh,config);
-	cout << "get shape energy"<<endl;
+	cout << "Finish get shape energy."<<endl;
 	SpareseMatrixD_Row Q = get_vertex_to_shape_mat(mesh,config);
+	//计算Border Constraint属性
 	pair<SpareseMatrixD_Row, VectorXd> pair_dvec_B = get_boundary_mat(scaled_img, mesh, config);
-	cout << "get border constraint" << endl;
+	cout << "Finish get border constraint" << endl;
 	
-	vector<pair<int, double>>id_theta;
-	vector < LineD > line_flatten;
+	vector<pair<int, double>>id_theta;//存储bin的编号和theta的值
+	vector < LineD > line_flatten;//存储划分后的一维的线段
 	vector<double> rotate_theta;
+	//找到图像中的线条，按照网格对其进行分割
 	vector<vector<vector<LineD>>> LineSeg = init_line_seg(scaled_img, mask, config, line_flatten, mesh, id_theta,rotate_theta);
-	
-
-
-	
+	//按照论文中提到的，进行十轮迭代
+	cout << "Begin iteration...."<<endl;
 	for (int iter = 1; iter <= 10; iter++) {
 		cout << iter << endl;
 		int Nl = 0;

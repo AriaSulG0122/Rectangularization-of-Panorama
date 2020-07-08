@@ -107,9 +107,11 @@ struct CoordinateDouble {
 	CoordinateDouble(double setRow, double setCol) { row = setRow; col = setCol; };
 };
 
+//一条线段
 struct LineD {
-	double row1, col1;
-	double row2, col2;
+	//由线段的两个顶点坐标唯一确定该线段
+	double row1, col1;//线段顶点一
+	double row2, col2;//线段顶点二
 	LineD(double row1, double col1, double row2, double col2) {
 		this->row1 = row1;
 		this->row2 = row2;

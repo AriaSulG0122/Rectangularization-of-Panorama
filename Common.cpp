@@ -1,16 +1,19 @@
 #include"Common.h"
-
+using namespace cv;
 void fillHole(const CVMat srcBw, CVMat &dstBw) {
 	cv::Size m_Size = srcBw.size();
 	CVMat Temp = CVMat::zeros(m_Size.height + 2, m_Size.width + 2, srcBw.type());//延展图像  
 	srcBw.copyTo(Temp(cv::Range::Range(1, m_Size.height + 1), cv::Range::Range(1, m_Size.width + 1)));
-	//从原点开始进行满水填充
+	//从原点开始进行漫水填充，将所有边界点留白，剩下中间的黑洞
 	cv::floodFill(Temp, cv::Point(0, 0), cv::Scalar(255));
 
 	CVMat cutImg;//裁剪延展的图像  
 	Temp(cv::Range::Range(1, m_Size.height + 1), cv::Range::Range(1, m_Size.width + 1)).copyTo(cutImg);
-
-	dstBw = srcBw | (~cutImg);
+	//namedWindow("MyTempCutImage", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
+ //   imshow("MyTempCutImage", cutImg);//在MyWindow的窗中中显示存储在img中的图片
+ //   waitKey(0);//等待直到有键按下
+ //   destroyWindow("MyTempCutImage");//销毁MyWindow的窗口
+	dstBw = srcBw | (~cutImg);//进行与运算，将中间的黑洞填补
 }
 
 CVMat Mask_contour(CVMat src) {
@@ -28,10 +31,19 @@ CVMat Mask_contour(CVMat src) {
 			}
 		}
 	}
+    //namedWindow("MyTempMask", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
+    //imshow("MyTempMask", mask);//在MyWindow的窗中中显示存储在img中的图片
+    //waitKey(0);//等待直到有键按下
+    //destroyWindow("MyTempMask");//销毁MyWindow的窗口
 
+	//通过漫灌，对空缺部分进行填充，空缺部分为黑
 	fillHole(mask, bw);
+	//namedWindow("BackBlack", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
+ //   imshow("BackBlack", bw);//在MyWindow的窗中中显示存储在img中的图片
+ //   waitKey(0);//等待直到有键按下
+ //   destroyWindow("BackBlack");//销毁MyWindow的窗口
+	//将空缺部分置白
 	bw = ~bw;
-	
 	CVMat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
 	CVMat dilate_out;//膨胀
 	cv::dilate(bw, dilate_out, element);
