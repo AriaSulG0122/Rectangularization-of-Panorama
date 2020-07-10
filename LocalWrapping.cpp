@@ -588,8 +588,8 @@ int* Get_local_seam(CVMat src, CVMat mask, SeamDirection seamdirection, pair<int
 //获取每个网格点的坐标
 vector<vector<CoordinateDouble>> get_rectangle_mesh(CVMat src, Config config) {
 	//获取网格线的行和列
-	int meshnum_row = config.meshNumRow;
-	int meshnum_col = config.meshNumCol;
+	int meshnum_row = config.meshLineRow;
+	int meshnum_col = config.meshLineCol;
 	//获取每个网格占有图像的行数和列数
 	double row_per_mesh = config.rowPermesh;
 	double col_per_mesh = config.colPermesh;
@@ -611,8 +611,8 @@ vector<vector<CoordinateDouble>> get_rectangle_mesh(CVMat src, Config config) {
 //进行warp back
 void wrap_mesh_back(vector<vector<CoordinateDouble>>& mesh, vector<vector<Coordinate>> displacementMap, Config config) {
 	//读取网格的行数与列数
-	int meshnum_row = config.meshNumRow;
-	int meshnum_col = config.meshNumCol;
+	int meshnum_row = config.meshLineRow;
+	int meshnum_col = config.meshLineCol;
 	//遍历每个网格点
 	for (int row_mesh = 0; row_mesh < meshnum_row; row_mesh++) {
 		for (int col_mesh = 0; col_mesh < meshnum_col; col_mesh++) {
@@ -623,7 +623,7 @@ void wrap_mesh_back(vector<vector<CoordinateDouble>>& mesh, vector<vector<Coordi
 				meshVertexCoord.row += vertexDisplacement.row;
 				meshVertexCoord.col += vertexDisplacement.col;
 			}
-			//获取当前的网格点信息
+			//获取当前的网格点坐标信息，注意这里是取地址
 			CoordinateDouble& meshVertexCoord = mesh[row_mesh][col_mesh];
 			//获取当前网格点的偏移信息
 			Coordinate vertexDisplacement = displacementMap[(int)floor(meshVertexCoord.row)][(int)floor(meshVertexCoord.col)];

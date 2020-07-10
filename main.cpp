@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
     //destroyWindow("MyTempMask");//销毁MyWindow的窗口
 	
 	CVMat wrapped_img = CVMat::zeros(scaled_img.size(), CV_8UC3);
-	//*****进行Local Warpping，同时获取到最终的偏移量矩阵，这将用于warp back
+	//*****进行Local Warpping，同时获取到最终的偏移量矩阵，这将用于warp back，这里的displacementMap记录了每个像素点的偏移
 	vector<vector<Coordinate>> displacementMap = Local_wrap(scaled_img,wrapped_img,tmpmask);
 	//**输出seam carving图像信息
 	//namedWindow("MyWarppedImage", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
@@ -204,66 +204,73 @@ int main(int argc, char* argv[]) {
 	wrap_mesh_back(mesh,displacementMap,config);
 	cout << "Finish wrap back. Begin global warpping."<<endl;
 
-	//计算每个网格点的shape energy属性
+	//计算每个网格点的shape energy属性，并存入到shape_energy中
 	SpareseMatrixD_Row shape_energy = get_shape_mat(mesh,config);
 	cout << "Finish get shape energy."<<endl;
+	//8*2
 	SpareseMatrixD_Row Q = get_vertex_to_shape_mat(mesh,config);
-	//计算Border Constraint属性
-	pair<SpareseMatrixD_Row, VectorXd> pair_dvec_B = get_boundary_mat(scaled_img, mesh, config);
+	//计算Border Constraint属性，并记录在组合容器border_pos_val中
+	//组合的第一个元素为2n*2n，表示边界点的某个方向的坐标
+	//组合的第二个元素为2n*1（一维），表示边界点某个方向的坐标的取值
+	pair<SpareseMatrixD_Row, VectorXd> border_pos_val = get_boundary_mat(scaled_img, mesh, config);
 	cout << "Finish get border constraint" << endl;
 	
 	vector<pair<int, double>>id_theta;//存储bin的编号和theta的值
 	vector < LineD > line_flatten;//存储划分后的一维的线段
 	vector<double> rotate_theta;
-	//找到图像中的线条，按照网格对其进行分割
+	//找到图像中的线条，按照网格对其进行分割，LineSeg记录了每个容器中的线段,id_theta则记录了容器与角度的对应值
 	vector<vector<vector<LineD>>> LineSeg = init_line_seg(scaled_img, mask, config, line_flatten, mesh, id_theta,rotate_theta);
+	
 	//按照论文中提到的，进行十轮迭代
-	cout << "Begin iteration...."<<endl;
+	cout << "Begin iteration..."<<endl;
+	//cout << "Begin iteration...Please"<<endl;
 	for (int iter = 1; iter <= 10; iter++) {
 		cout << iter << endl;
 		int Nl = 0;
 		vector<pair<MatrixXd, MatrixXd>> BilinearVec;//need to update
 		vector<bool> bad;
+		//获取line energy，见论文公式5、6
 		SpareseMatrixD_Row line_energy = get_line_mat(scaled_img, mask, mesh, rotate_theta, LineSeg, BilinearVec, config, Nl, bad);
-		cout << "get line energy" << "  " << Nl << endl;
+		cout << "Finish get line energy." << "  " << Nl << endl;
 		//combine
-		double Nq = config.meshQuadRow*config.meshQuadCol;
-		double lambdaB = INF;
-		double lambdaL = 100;
-		SpareseMatrixD_Row shape = (1 / Nq)*(shape_energy*Q);
-		SpareseMatrixD_Row boundary = lambdaB * pair_dvec_B.first;
-		SpareseMatrixD_Row line = (lambdaL / Nl)*(line_energy*Q);
-
+		double Nq = config.meshQuadRow*config.meshQuadCol;//总的网格数
+		double lambdaB = INF;//boundary energy的权重
+		double lambdaL = 100;//line energy的权重，按照论文，设置为100
+		SpareseMatrixD_Row shape = (1 / Nq)*(shape_energy*Q);//形状能量，论文公式2
+		SpareseMatrixD_Row boundary = lambdaB * border_pos_val.first;//边界能量
+		SpareseMatrixD_Row line = (lambdaL / Nl)*(line_energy*Q);//线条能量，论文公式7
+		//将三个能量矩阵给拼接起来
 		SpareseMatrixD_Row K = row_stack(shape, line);
 		SpareseMatrixD_Row K2 = row_stack(K, boundary);
-
-		//print_sparse_mat_row(shape_energy,1);
-		//system("pause");
-		VectorXd B = pair_dvec_B.second;
-		VectorXd BA = VectorXd::Zero(K2.rows());
-		BA.tail(B.size()) = lambdaB * B;
-
 		SparseMatrixD K2_trans = K2.transpose();
 		SparseMatrixD A = K2_trans * K2;
-		VectorXd b = K2_trans * BA;
-		VectorXd x;
 
+		VectorXd B = border_pos_val.second;
+		VectorXd BA = VectorXd::Zero(K2.rows());
+		BA.tail(B.size()) = lambdaB * B;
+		VectorXd b = K2_trans * BA;
+		
+		VectorXd x;
 		CSolve *p_A = new CSolve(A);
-		x = p_A->solve(b);
-		//update theta
+		x = p_A->solve(b);//求解Ax=b，求得x为一维的2n数组
+		//update mesh，根据x获取新的矩阵输出
 		outputmesh = vector_to_mesh(x, config);
+		//update theta
 		int tmplinenum = -1;
-		VectorXd thetagroup = VectorXd::Zero(50);
-		VectorXd thetagroupcnt = VectorXd::Zero(50);
+		VectorXd thetagroup = VectorXd::Zero(50);//记录当前bin的角度和
+		VectorXd thetagroupcnt = VectorXd::Zero(50);//记录当前bin的线段数
+		//遍历每个网格
 		for (int row = 0; row < config.meshQuadRow; row++) {
 			for (int col = 0; col < config.meshQuadCol; col++) {
-				vector<LineD> linesegInquad = LineSeg[row][col];
+				vector<LineD> linesegInquad = LineSeg[row][col];//当前网格线段
 				int QuadID = row * config.meshQuadCol + col;
 				if (linesegInquad.size() == 0) {
 					continue;
 				}
 				else {
+					//根据新的网格，获取网格点坐标信息，得到8*1的S矩阵
 					VectorXd S = get_vertice(row, col, outputmesh);
+					//遍历当前网格的所有线段
 					for (int k = 0; k < linesegInquad.size(); k++) {
 						tmplinenum++;
 						//cout << tmplinenum<<endl;
@@ -271,25 +278,30 @@ int main(int argc, char* argv[]) {
 							continue;
 						}
 						//cout << tmplinenum;
+						//获取当前线段的双线性权重矩阵
 						pair<MatrixXd, MatrixXd> Bstartend = BilinearVec[tmplinenum];
-						MatrixXd start_W_mat = Bstartend.first;
+						MatrixXd start_W_mat = Bstartend.first;//2*8
 						MatrixXd end_W_mat = Bstartend.second;
-						Vector2d newstart = start_W_mat * S;
+						Vector2d newstart = start_W_mat * S;// (2*8)  *   (8*1) = (2*1)
 						Vector2d newend = end_W_mat * S;
-
+						//计算新的theta值
 						double theta = atan((newstart(1) - newend(1)) / (newstart(0) - newend(0)));
+						//计算新的theta值和旧的theta值的差值
 						double deltatheta = theta - id_theta[tmplinenum].second;
+
 						if (isnan(id_theta[tmplinenum].second) || isnan(deltatheta)) {
 							continue;
 						}
-
+						//考虑越界情况
 						if (deltatheta > (PI / 2)) {
 							deltatheta -= PI;
 						}
 						if (deltatheta < (-PI / 2)) {
 							deltatheta += PI;
 						}
+						//累加当前bin的变化的角度和
 						thetagroup(id_theta[tmplinenum].first) += deltatheta;
+						//累加当前bin的线段数
 						thetagroupcnt(id_theta[tmplinenum].first) += 1;
 						//cout << newstart << endl << endl << newend;
 					}
@@ -297,16 +309,16 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		//cal mean theta
+		//根据角度和以及线段数计算每个bin的角度平均值theta_mean
 		for (int ii = 0; ii < thetagroup.size(); ii++) {
 			thetagroup(ii) /= thetagroupcnt(ii);
 
 		}
-		//update rotate_theta
+		//更新每条线段的旋转角theta
 		for (int ii = 0; ii < rotate_theta.size(); ii++) {
 			rotate_theta[ii] = thetagroup[id_theta[ii].first];
 		}
-	}
+	}//end interator
 	//cout << x;
 	//system("pause");
 	//vector<vector<CoordinateDouble>> outputmesh = vector_to_mesh(x,config);

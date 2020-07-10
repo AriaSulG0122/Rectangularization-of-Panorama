@@ -56,8 +56,8 @@ CVMat Mask_contour(CVMat src) {
 }
 
 VectorXd mesh_to_vector(vector<vector<CoordinateDouble>> mesh, Config config) {
-	int numMeshRow = config.meshNumRow;
-	int numMeshCol = config.meshNumCol;
+	int numMeshRow = config.meshLineRow;
+	int numMeshCol = config.meshLineCol;
 	VectorXd vec = VectorXd::Zero(numMeshRow*numMeshCol * 2);
 	for (int row = 0; row < numMeshRow; row++) {
 		for (int col = 0; col < numMeshCol; col++) {
@@ -69,9 +69,10 @@ VectorXd mesh_to_vector(vector<vector<CoordinateDouble>> mesh, Config config) {
 	return vec;
 }
 
+//将线性的向量转化为矩阵
 vector<vector<CoordinateDouble>> vector_to_mesh(VectorXd x, Config config) {
-	int numMeshRow = config.meshNumRow;
-	int numMeshCol = config.meshNumCol;
+	int numMeshRow = config.meshLineRow;
+	int numMeshCol = config.meshLineCol;
 	vector<vector<CoordinateDouble>> mesh;
 	for (int row = 0; row < numMeshRow; row++) {
 		vector<CoordinateDouble> meshRow;
@@ -96,6 +97,7 @@ void print_sparse_mat(SparseMatrixD Q) {
 	}
 }
 
+//row stack用于将两个矩阵上下拼接起来
 SpareseMatrixD_Row row_stack(SparseMatrixD origin, SpareseMatrixD_Row diag) {
 	SpareseMatrixD_Row res(origin.rows() + diag.rows(), origin.cols());
 	res.topRows(origin.rows()) = origin;
@@ -140,21 +142,21 @@ void DrawLine(CVMat& img, LineD line) {
 }
 
 CVMat drawmesh(CVMat src, vector<vector<CoordinateDouble>> mesh, Config config) {
-	int meshNumRow = config.meshNumRow;
-	int meshNumCol = config.meshNumCol;
+	int meshLineRow = config.meshLineRow;
+	int meshLineCol = config.meshLineCol;
 
-	for (int row = 0; row < meshNumRow; row++) {
-		for (int col = 0; col < meshNumCol; col++) {
+	for (int row = 0; row < meshLineRow; row++) {
+		for (int col = 0; col < meshLineCol; col++) {
 			CoordinateDouble now = mesh[row][col];
-			if (row == meshNumRow - 1 && col<meshNumCol - 1) {
+			if (row == meshLineRow - 1 && col<meshLineCol - 1) {
 				CoordinateDouble right = mesh[row][col + 1];
 				DrawLine(src, now, right);
 			}
-			else if (row < meshNumRow - 1 && col == meshNumCol - 1) {
+			else if (row < meshLineRow - 1 && col == meshLineCol - 1) {
 				CoordinateDouble down = mesh[row + 1][col];
 				DrawLine(src, now, down);
 			}
-			else if (row < meshNumRow - 1 && col < meshNumCol - 1) {
+			else if (row < meshLineRow - 1 && col < meshLineCol - 1) {
 				CoordinateDouble right = mesh[row][col + 1];
 				DrawLine(src, now, right);
 				CoordinateDouble down = mesh[row + 1][col];
@@ -169,8 +171,8 @@ CVMat drawmesh(CVMat src, vector<vector<CoordinateDouble>> mesh, Config config) 
 }
 
 void enlarge_mesh(vector<vector<CoordinateDouble>>& mesh, double enlarge_factor, Config config) {
-	int numMeshRow = config.meshNumRow;
-	int numMeshCol = config.meshNumCol;
+	int numMeshRow = config.meshLineRow;
+	int numMeshCol = config.meshLineCol;
 	for (int row = 0; row < numMeshRow; row++) {
 		for (int col = 0; col < numMeshCol; col++) {
 			CoordinateDouble &coord = mesh[row][col];

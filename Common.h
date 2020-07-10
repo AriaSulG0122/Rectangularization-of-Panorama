@@ -35,22 +35,22 @@ using namespace std;
 struct Config {//运行前配置
 	int rows;//行数
 	int cols;//列数
-	int meshNumRow;//网格线行数
-	int meshNumCol;//网格线列数
+	int meshLineRow;//网格线行数
+	int meshLineCol;//网格线列数
 	int meshQuadRow;//网格行数
 	int meshQuadCol;//网格列数
 	double rowPermesh;//每个网格的行数
 	double colPermesh;//每个网格的列数
 	//构造函数
-	Config(int rows, int cols, int meshNumRow, int meshNumCol) {
+	Config(int rows, int cols, int meshLineRow, int meshLineCol) {
 		this->rows = rows;
 		this->cols = cols;
-		this->meshNumRow = meshNumRow;
-		this->meshNumCol = meshNumCol;
-		this->meshQuadCol = meshNumCol - 1;
-		this->meshQuadRow = meshNumRow - 1;
-		this->rowPermesh = double(rows - 1) / (meshNumRow - 1);
-		this->colPermesh = double(cols - 1) / (meshNumCol - 1);
+		this->meshLineRow = meshLineRow;
+		this->meshLineCol = meshLineCol;
+		this->meshQuadCol = meshLineCol - 1;
+		this->meshQuadRow = meshLineRow - 1;
+		this->rowPermesh = double(rows - 1) / (meshLineRow - 1);
+		this->colPermesh = double(cols - 1) / (meshLineCol - 1);
 	}
 };
 

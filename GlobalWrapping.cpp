@@ -1,172 +1,39 @@
 #include"GlobalWrapping.h"
 
-MatrixXd BilinearWeightsToMatrix(BilinearWeights w) {
-	MatrixXd mat(2, 8);
-	double v1w = 1 - w.s - w.t + w.s*w.t;
-	double v2w = w.s - w.s*w.t;
-	double v3w = w.t - w.s*w.t;
-	double v4w = w.s*w.t;
-	mat << v1w, 0, v2w, 0, v3w, 0, v4w, 0,
-		0, v1w, 0, v2w, 0, v3w, 0, v4w;
-	return mat;
-}
-
-BilinearWeights get_bilinear_weights(CoordinateDouble point, Coordinate upperLeftIndices, vector<vector<CoordinateDouble>> mesh) {
-	CoordinateDouble p1 = mesh[upperLeftIndices.row][upperLeftIndices.col]; // topLeft
-	CoordinateDouble p2 = mesh[upperLeftIndices.row][upperLeftIndices.col + 1]; // topRight
-	CoordinateDouble p3 = mesh[upperLeftIndices.row + 1][upperLeftIndices.col]; // bottomLeft
-	CoordinateDouble p4 = mesh[upperLeftIndices.row + 1][upperLeftIndices.col + 1]; // bottomRight
-
-	//test
-	//cout << p1 << " " << p2 << endl << p3 << " " << p4 << endl<<point;
-	//
-
-	double slopeTop = (p2.row - p1.row) / (p2.col - p1.col);
-	double slopeBottom = (p4.row - p3.row) / (p4.col - p3.col);
-	double slopeLeft = (p1.row - p3.row) / (p1.col - p3.col);
-	double slopeRight = (p2.row - p4.row) / (p2.col - p4.col);
-
-	double quadraticEpsilon = 0.01;
-
-	if (slopeTop == slopeBottom && slopeLeft == slopeRight) {
-
-		// method 3
-		Matrix2d mat1;
-		mat1 << p2.col - p1.col, p3.col - p1.col,
-			p2.row - p1.row, p3.row - p1.row;
-
-		MatrixXd mat2(2, 1);
-		mat2 << point.col - p1.col, point.row - p1.row;
-
-		MatrixXd matsolution = mat1.inverse()*mat2;
-
-		BilinearWeights weights;
-		weights.s = matsolution(0, 0);
-		weights.t = matsolution(1, 0);
-		return weights;
-	}
-	else if (slopeLeft == slopeRight) {
-
-		// method 2
-		double a = (p2.col - p1.col)*(p4.row - p3.row) - (p2.row - p1.row)*(p4.col - p3.col);
-		double b = point.row*((p4.col - p3.col) - (p2.col - p1.col)) - point.col*((p4.row - p3.row) - (p2.row - p1.row)) + p1.col*(p4.row - p3.row) - p1.row*(p4.col - p3.col) + (p2.col - p1.col)*(p3.row) - (p2.row - p1.row)*(p3.col);
-		double c = point.row*(p3.col - p1.col) - point.col*(p3.row - p1.row) + p1.col*p3.row - p3.col*p1.row;
-
-		double s1 = (-1 * b + sqrt(b*b - 4 * a*c)) / (2 * a);
-		double s2 = (-1 * b - sqrt(b*b - 4 * a*c)) / (2 * a);
-		double s;
-		if (s1 >= 0 && s1 <= 1) {
-			s = s1;
-		}
-		else if (s2 >= 0 && s2 <= 1) {
-			s = s2;
-		}
-		else {
-
-			if ((s1 > 1 && s1 - quadraticEpsilon < 1) ||
-				(s2 > 1 && s2 - quadraticEpsilon < 1)) {
-				s = 1;
-			}
-			else if ((s1 < 0 && s1 + quadraticEpsilon > 0) ||
-				(s2 < 0 && s2 + quadraticEpsilon > 0)) {
-				s = 0;
-			}
-			else {
-				// this case should not happen
-				cerr << "   Could not interpolate s weight for coordinate (" << point.col << "," << point.row << ")." << endl;
-				s = 0;
-			}
-		}
-
-		double val = (p3.row + (p4.row - p3.row)*s - p1.row - (p2.row - p1.row)*s);
-		double t = (point.row - p1.row - (p2.row - p1.row)*s) / val;
-		double valEpsilon = 0.1; // 0.1 and 0.01 appear identical
-		if (fabs(val) < valEpsilon) {
-			// Py ~= Cy because Dy - Cy ~= 0. So, instead of interpolating with y, we use x.
-			t = (point.col - p1.col - (p2.col - p1.col)*s) / (p3.col + (p4.col - p3.col)*s - p1.col - (p2.col - p1.col)*s);
-		}
-
-		BilinearWeights weights;
-		weights.s = s;
-		weights.t = t;
-		return weights;
-	}
-	else {
-
-		// method 1
-		double a = (p3.col - p1.col)*(p4.row - p2.row) - (p3.row - p1.row)*(p4.col - p2.col);
-		double b = point.row*((p4.col - p2.col) - (p3.col - p1.col)) - point.col*((p4.row - p2.row) - (p3.row - p1.row)) + (p3.col - p1.col)*(p2.row) - (p3.row - p1.row)*(p2.col) + (p1.col)*(p4.row - p2.row) - (p1.row)*(p4.col - p2.col);
-		double c = point.row*(p2.col - p1.col) - (point.col)*(p2.row - p1.row) + p1.col*p2.row - p2.col*p1.row;
-
-		double t1 = (-1 * b + sqrt(b*b - 4 * a*c)) / (2 * a);
-		double t2 = (-1 * b - sqrt(b*b - 4 * a*c)) / (2 * a);
-		double t;
-		if (t1 >= 0 && t1 <= 1) {
-			t = t1;
-		}
-		else if (t2 >= 0 && t2 <= 1) {
-			t = t2;
-		}
-		else {
-			if ((t1 > 1 && t1 - quadraticEpsilon < 1) ||
-				(t2 > 1 && t2 - quadraticEpsilon < 1)) {
-				t = 1;
-			}
-			else if ((t1 < 0 && t1 + quadraticEpsilon > 0) ||
-				(t2 < 0 && t2 + quadraticEpsilon > 0)) {
-				t = 0;
-			}
-			else {
-				// this case should not happen
-				cerr << "   Could not interpolate t weight for coordinate (" << point.col << "," << point.row << ")." << endl;
-				t = 0;
-			}
-		}
-
-		double val = (p2.row + (p4.row - p2.row)*t - p1.row - (p3.row - p1.row)*t);
-		double s = (point.row - p1.row - (p3.row - p1.row)*t) / val;
-		double valEpsilon = 0.1; // 0.1 and 0.01 appear identical
-		if (fabs(val) < valEpsilon) {
-			// Py ~= Ay because By - Ay ~= 0. So, instead of interpolating with y, we use x.
-			s = (point.col - p1.col - (p3.col - p1.col)*t) / (p2.col + (p4.col - p2.col)*t - p1.col - (p3.col - p1.col)*t);
-		}
-
-		BilinearWeights weights;
-		weights.s = clamp(s, 0, 1);
-		weights.t = clamp(t, 0, 1);
-		return weights;
-	}
-}
 
 pair<SpareseMatrixD_Row, VectorXd> get_boundary_mat(CVMat src, vector<vector<CoordinateDouble>> mesh, Config config) {
 	//Vq=[x0 y0,x1,y1...]
 	int rows = config.rows;//行数
 	int cols = config.cols;//列数
-	int numMeshRow = config.meshNumRow;//网格线行数
-	int numMeshCol = config.meshNumCol;//网格线列数
-	int vertexnum = numMeshRow * numMeshCol;//网格点数
-
+	int numLineRow = config.meshLineRow;//网格线行数
+	int numLineCol = config.meshLineCol;//网格线列数
+	int vertexnum = numLineRow * numLineCol;//网格点数
+	// *2是代表网格点的(x,y)
 	VectorXd dvec = VectorXd::Zero(vertexnum * 2);
-	VectorXd B = VectorXd::Zero(vertexnum * 2);
-	//左
-	for (int i = 0; i < vertexnum * 2; i += numMeshCol * 2) {
+	VectorXd Value = VectorXd::Zero(vertexnum * 2);
+	//遍历左侧所有点
+	for (int i = 0; i < vertexnum * 2; i += numLineCol * 2) {
+		//限制x坐标为0
 		dvec(i) = 1;
-		B(i) = 0;
+		Value(i) = 0;
 	}
-	//右
-	for (int i = numMeshCol * 2 - 2; i < vertexnum * 2; i += numMeshCol * 2) {
+	//遍历右侧所有点
+	for (int i = numLineCol * 2 - 2; i < vertexnum * 2; i += numLineCol * 2) {
+		//限制x坐标为cols-1
 		dvec(i) = 1;
-		B(i) = cols - 1;
+		Value(i) = cols - 1;
 	}
-	//上
-	for (int i = 1; i < 2 * numMeshCol; i += 2) {//top
+	//遍历上侧所有点
+	for (int i = 1; i < 2 * numLineCol; i += 2) {
+		//限制y坐标为0
 		dvec(i) = 1;
-		B(i) = 0;
+		Value(i) = 0;
 	}
-	//下
-	for (int i = 2 * vertexnum - 2 * numMeshCol + 1; i < vertexnum * 2; i += 2) {
+	//遍历下侧所有点
+	for (int i = 2 * vertexnum - 2 * numLineCol + 1; i < vertexnum * 2; i += 2) {
+		//限制y坐标为rows-1
 		dvec(i) = 1;
-		B(i) = rows - 1;
+		Value(i) = rows - 1;
 	}
 
 	//diag sparse;
@@ -175,25 +42,14 @@ pair<SpareseMatrixD_Row, VectorXd> get_boundary_mat(CVMat src, vector<vector<Coo
 		diag.insert(i, i) = dvec(i);
 	}
 	diag.makeCompressed();
-	return make_pair(diag, B);
+	return make_pair(diag, Value);
 };
 
-VectorXd get_vertice(int row, int col, vector<vector<CoordinateDouble>> mesh) {//y0,x0,y1,x1...
-	VectorXd Vq = VectorXd::Zero(8);
-	CoordinateDouble p0 = mesh[row][col];//左上
-
-	CoordinateDouble p1 = mesh[row][col + 1];//右上
-	CoordinateDouble p2 = mesh[row + 1][col];//左下
-	CoordinateDouble p3 = mesh[row + 1][col + 1];//右下
-	Vq << p0.col, p0.row, p1.col, p1.row, p2.col, p2.row, p3.col, p3.row;
-	return Vq;
-}
-
+//获取shape energy
 SpareseMatrixD_Row get_shape_mat(vector<vector<CoordinateDouble>> mesh, Config config) {
-	int numMeshRow = config.meshNumRow;
-	int numMeshCol = config.meshNumCol;
 	int numQuadRow = config.meshQuadRow;//网格行数
 	int numQuadCol = config.meshQuadCol;//网格列数
+	//*8是代表网格的(x0,y0,x1,y1,x2,y2,x3,y3,x4,y4)
 	SpareseMatrixD_Row Shape_energy(8 * numQuadRow*numQuadCol, 8 * numQuadRow*numQuadCol);
 	for (int row = 0; row < numQuadRow; row++) {
 		for (int col = 0; col < numQuadCol; col++) {
@@ -215,7 +71,7 @@ SpareseMatrixD_Row get_shape_mat(vector<vector<CoordinateDouble>> mesh, Config c
 			MatrixXd Aq_trans_mul_Aq_reverse = (Aq_trans * Aq).inverse();// ((Aq^T)*Aq)^(-1)
 			MatrixXd I = MatrixXd::Identity(8, 8);//8*8的单位矩阵
 			MatrixXd coeff = (Aq*(Aq_trans_mul_Aq_reverse)*Aq_trans - I);
-
+			//将当前网格的energy（8*8）放入到Shape_energy中
 			int left_top_x = (row*numQuadCol + col) * 8;
 			for (int i = 0; i < 8; i++) {
 				for (int j = 0; j < 8; j++) {
@@ -229,35 +85,27 @@ SpareseMatrixD_Row get_shape_mat(vector<vector<CoordinateDouble>> mesh, Config c
 }
 
 SpareseMatrixD_Row get_vertex_to_shape_mat(vector<vector<CoordinateDouble>> mesh, Config config) {
-	int numMeshRow = config.meshNumRow;
-	int numMeshCol = config.meshNumCol;
+	int numLineRow = config.meshLineRow;
+	int numLineCol = config.meshLineCol;
 	int numQuadRow = config.meshQuadRow;
 	int numQuadCol = config.meshQuadCol;
-	SpareseMatrixD_Row Q(8 * numQuadRow*numQuadCol, 2 * numMeshRow*numMeshCol);
+	SpareseMatrixD_Row Q(8 * numQuadRow*numQuadCol, 2 * numLineRow*numLineCol);
+	//遍历每个网格
 	for (int row = 0; row < numQuadRow; row++) {
 		for (int col = 0; col < numQuadCol; col++) {
-			int quadid = 8 * (row*numQuadCol + col);
-			int topleftvertexId = 2 * (row*numMeshCol + col);
+			int quadid = 8 * (row*numQuadCol + col);//当前网格编号
+			int topleftvertexId = 2 * (row*numLineCol + col);//当前网格左上的网格点的编号
 			Q.insert(quadid, topleftvertexId) = 1;
 			Q.insert(quadid + 1, topleftvertexId + 1) = 1;
 			Q.insert(quadid + 2, topleftvertexId + 2) = 1;
 			Q.insert(quadid + 3, topleftvertexId + 3) = 1;
-			Q.insert(quadid + 4, topleftvertexId + 2 * numMeshCol) = 1;
-			Q.insert(quadid + 5, topleftvertexId + 2 * numMeshCol + 1) = 1;
-			Q.insert(quadid + 6, topleftvertexId + 2 * numMeshCol + 2) = 1;
-			Q.insert(quadid + 7, topleftvertexId + 2 * numMeshCol + 3) = 1;
+			Q.insert(quadid + 4, topleftvertexId + 2 * numLineCol) = 1;
+			Q.insert(quadid + 5, topleftvertexId + 2 * numLineCol + 1) = 1;
+			Q.insert(quadid + 6, topleftvertexId + 2 * numLineCol + 2) = 1;
+			Q.insert(quadid + 7, topleftvertexId + 2 * numLineCol + 3) = 1;
 		}
 	}
 	Q.makeCompressed();
-	/*
-	for (int k = 0; k < Q.outerSize(); ++k) {
-	for (SparseMatrix<double>::InnerIterator it(Q, k); it; ++it)
-	{
-	std::cout << it.row() << " " << it.col() << " : " << it.value() << std::endl;
-	}
-	system("pause");
-	std::cout << std::endl;
-	}*/
 	return Q;
 }
 
@@ -359,7 +207,7 @@ void revise_mask_for_lines(CVMat &mask) {
 bool is_in_quad(CoordinateDouble point, CoordinateDouble topLeft, CoordinateDouble topRight,
 	CoordinateDouble bottomLeft, CoordinateDouble bottomRight) {
 	//点必须位于左网格线的右侧，上网格线的下侧，底网格线的上侧，左右格线的左侧
-	
+
 	//左网格线的右侧
 	if (topLeft.col == bottomLeft.col) {//网格线平
 		if (point.col < topLeft.col) {
@@ -685,22 +533,6 @@ void flatten(vector<vector<vector<LineD>>> lineSeg, vector<LineD>& line_vec, Con
 	}
 }
 
-SpareseMatrixD_Row block_diag(SpareseMatrixD_Row origin, MatrixXd addin, int QuadID, Config config) {
-	int cols_total = 8 * config.meshQuadRow*config.meshQuadCol;
-	SpareseMatrixD_Row res(origin.rows() + addin.rows(), cols_total);
-	res.topRows(origin.rows()) = origin;
-
-	int lefttop_row = origin.rows();
-	int lefttop_col = 8 * QuadID;
-	for (int row = 0; row < addin.rows(); row++) {
-		for (int col = 0; col < addin.cols(); col++) {
-			res.insert(lefttop_row + row, lefttop_col + col) = addin(row, col);
-		}
-	}
-	res.makeCompressed();
-	return res;
-}
-
 //初始化线段
 vector<vector<vector<LineD>>> init_line_seg(CVMat src, CVMat mask, Config config, vector < LineD > &lineSeg_flatten,
 	vector<vector<CoordinateDouble>> mesh, vector<pair<int, double>>&id_theta, vector<double> &rotate_theta) {
@@ -728,40 +560,198 @@ vector<vector<vector<LineD>>> init_line_seg(CVMat src, CVMat mask, Config config
 	return lineSeg;
 }
 
+//在原始矩阵origin的基础上再往下连接矩阵addin
+SpareseMatrixD_Row block_diag(SpareseMatrixD_Row origin, MatrixXd addin, int QuadID, Config config) {
+	int cols_total = 8 * config.meshQuadRow*config.meshQuadCol;
+	SpareseMatrixD_Row res(origin.rows() + addin.rows(), cols_total);
+	res.topRows(origin.rows()) = origin;
+
+	int lefttop_row = origin.rows();
+	int lefttop_col = 8 * QuadID;
+	for (int row = 0; row < addin.rows(); row++) {
+		for (int col = 0; col < addin.cols(); col++) {
+			res.insert(lefttop_row + row, lefttop_col + col) = addin(row, col);
+		}
+	}
+	res.makeCompressed();
+	return res;
+}
+
+//获取当前网格的四个顶点的坐标值，转化为8*1的矩阵
+VectorXd get_vertice(int row, int col, vector<vector<CoordinateDouble>> mesh) {//y0,x0,y1,x1...
+	VectorXd Vq = VectorXd::Zero(8);
+	CoordinateDouble p0 = mesh[row][col];//左上
+	CoordinateDouble p1 = mesh[row][col + 1];//右上
+	CoordinateDouble p2 = mesh[row + 1][col];//左下
+	CoordinateDouble p3 = mesh[row + 1][col + 1];//右下
+	Vq << p0.col, p0.row, p1.col, p1.row, p2.col, p2.row, p3.col, p3.row;
+	return Vq;
+}
+
+//将权重转化为2*8的矩阵
+MatrixXd BilinearWeightsToMatrix(BilinearWeights w) {
+	MatrixXd mat(2, 8);
+	double v1w = 1 - w.s - w.t + w.s*w.t;
+	double v2w = w.s - w.s*w.t;
+	double v3w = w.t - w.s*w.t;
+	double v4w = w.s*w.t;
+	mat << v1w, 0, v2w, 0, v3w, 0, v4w, 0,
+		0, v1w, 0, v2w, 0, v3w, 0, v4w;
+	return mat;
+}
+
+BilinearWeights get_bilinear_weights(CoordinateDouble point, Coordinate upperLeftIndices, vector<vector<CoordinateDouble>> mesh) {
+	//获取当前网格的四个顶点坐标
+	CoordinateDouble p1 = mesh[upperLeftIndices.row][upperLeftIndices.col]; // topLeft
+	CoordinateDouble p2 = mesh[upperLeftIndices.row][upperLeftIndices.col + 1]; // topRight
+	CoordinateDouble p3 = mesh[upperLeftIndices.row + 1][upperLeftIndices.col]; // bottomLeft
+	CoordinateDouble p4 = mesh[upperLeftIndices.row + 1][upperLeftIndices.col + 1]; // bottomRight
+
+	//test
+	//cout << p1 << " " << p2 << endl << p3 << " " << p4 << endl<<point;
+
+	//上网格线斜率
+	double slopeTop = (p2.row - p1.row) / (p2.col - p1.col);
+	//下网格线斜率
+	double slopeBottom = (p4.row - p3.row) / (p4.col - p3.col);
+	//左网格线斜率
+	double slopeLeft = (p1.row - p3.row) / (p1.col - p3.col);
+	//右网格线斜率
+	double slopeRight = (p2.row - p4.row) / (p2.col - p4.col);
+
+	double quadraticEpsilon = 0.01;
+	//如果是长方形网格
+	if (slopeTop == slopeBottom && slopeLeft == slopeRight) {
+
+		//// method 3
+		Matrix2d mat1;
+		mat1 << p2.col - p1.col, p3.col - p1.col,
+			p2.row - p1.row, p3.row - p1.row;
+
+		MatrixXd mat2(2, 1);
+		mat2 << point.col - p1.col, point.row - p1.row;
+
+		MatrixXd matsolution = mat1.inverse()*mat2;
+		BilinearWeights weights;
+		weights.s = matsolution(0, 0);//获取matsolution(0,0)位置的值
+		weights.t = matsolution(1, 0);//获取matsolution(1,0)位置的值
+		return weights;
+	}
+	else if (slopeLeft == slopeRight) {//左右网格线平行
+		// method 2
+		double a = (p2.col - p1.col)*(p4.row - p3.row) - (p2.row - p1.row)*(p4.col - p3.col);
+		double b = point.row*((p4.col - p3.col) - (p2.col - p1.col)) - point.col*((p4.row - p3.row) - (p2.row - p1.row)) + p1.col*(p4.row - p3.row) - p1.row*(p4.col - p3.col) + (p2.col - p1.col)*(p3.row) - (p2.row - p1.row)*(p3.col);
+		double c = point.row*(p3.col - p1.col) - point.col*(p3.row - p1.row) + p1.col*p3.row - p3.col*p1.row;
+
+		double s1 = (-1 * b + sqrt(b*b - 4 * a*c)) / (2 * a);
+		double s2 = (-1 * b - sqrt(b*b - 4 * a*c)) / (2 * a);
+		double s;
+		if (s1 >= 0 && s1 <= 1) {
+			s = s1;
+		}
+		else if (s2 >= 0 && s2 <= 1) {
+			s = s2;
+		}
+		else {
+
+			if ((s1 > 1 && s1 - quadraticEpsilon < 1) ||
+				(s2 > 1 && s2 - quadraticEpsilon < 1)) {
+				s = 1;
+			}
+			else if ((s1 < 0 && s1 + quadraticEpsilon > 0) ||
+				(s2 < 0 && s2 + quadraticEpsilon > 0)) {
+				s = 0;
+			}
+			else {
+				// this case should not happen
+				cerr << "   Could not interpolate s weight for coordinate (" << point.col << "," << point.row << ")." << endl;
+				s = 0;
+			}
+		}
+
+		double val = (p3.row + (p4.row - p3.row)*s - p1.row - (p2.row - p1.row)*s);
+		double t = (point.row - p1.row - (p2.row - p1.row)*s) / val;
+		double valEpsilon = 0.1; // 0.1 and 0.01 appear identical
+		if (fabs(val) < valEpsilon) {
+			// Py ~= Cy because Dy - Cy ~= 0. So, instead of interpolating with y, we use x.
+			t = (point.col - p1.col - (p2.col - p1.col)*s) / (p3.col + (p4.col - p3.col)*s - p1.col - (p2.col - p1.col)*s);
+		}
+
+		BilinearWeights weights;
+		weights.s = s;
+		weights.t = t;
+		return weights;
+	}
+	else {
+
+		// method 1
+		double a = (p3.col - p1.col)*(p4.row - p2.row) - (p3.row - p1.row)*(p4.col - p2.col);
+		double b = point.row*((p4.col - p2.col) - (p3.col - p1.col)) - point.col*((p4.row - p2.row) - (p3.row - p1.row)) + (p3.col - p1.col)*(p2.row) - (p3.row - p1.row)*(p2.col) + (p1.col)*(p4.row - p2.row) - (p1.row)*(p4.col - p2.col);
+		double c = point.row*(p2.col - p1.col) - (point.col)*(p2.row - p1.row) + p1.col*p2.row - p2.col*p1.row;
+
+		double t1 = (-1 * b + sqrt(b*b - 4 * a*c)) / (2 * a);
+		double t2 = (-1 * b - sqrt(b*b - 4 * a*c)) / (2 * a);
+		double t;
+		if (t1 >= 0 && t1 <= 1) {
+			t = t1;
+		}
+		else if (t2 >= 0 && t2 <= 1) {
+			t = t2;
+		}
+		else {
+			if ((t1 > 1 && t1 - quadraticEpsilon < 1) ||
+				(t2 > 1 && t2 - quadraticEpsilon < 1)) {
+				t = 1;
+			}
+			else if ((t1 < 0 && t1 + quadraticEpsilon > 0) ||
+				(t2 < 0 && t2 + quadraticEpsilon > 0)) {
+				t = 0;
+			}
+			else {
+				// this case should not happen
+				cerr << "   Could not interpolate t weight for coordinate (" << point.col << "," << point.row << ")." << endl;
+				t = 0;
+			}
+		}
+
+		double val = (p2.row + (p4.row - p2.row)*t - p1.row - (p3.row - p1.row)*t);
+		double s = (point.row - p1.row - (p3.row - p1.row)*t) / val;
+		double valEpsilon = 0.1; // 0.1 and 0.01 appear identical
+		if (fabs(val) < valEpsilon) {
+			// Py ~= Ay because By - Ay ~= 0. So, instead of interpolating with y, we use x.
+			s = (point.col - p1.col - (p3.col - p1.col)*t) / (p2.col + (p4.col - p2.col)*t - p1.col - (p3.col - p1.col)*t);
+		}
+
+		BilinearWeights weights;
+		weights.s = clamp(s, 0, 1);
+		weights.t = clamp(t, 0, 1);
+		return weights;
+	}
+}
+
+//获取line energy
 SpareseMatrixD_Row get_line_mat(CVMat src, CVMat mask, vector<vector<CoordinateDouble>> mesh,
 	vector<double>rotate_theta, vector<vector<vector<LineD>>> lineSeg, vector<pair<MatrixXd, MatrixXd>>& BilinearVec,
 	Config config, int &linenum, vector<bool>& bad) {
 
 	int linetmpnum = -1;
-	int rows = config.rows;
-	int cols = config.cols;
-	int QuadnumRow = config.meshQuadRow;
-	int QuadnumCol = config.meshQuadCol;
-	double gridcols = config.colPermesh;
-	double gridrows = config.rowPermesh;
+	int rows = config.rows;//行数
+	int cols = config.cols;//列数
+	int QuadnumRow = config.meshQuadRow;//网格行数
+	int QuadnumCol = config.meshQuadCol;//网格列数
 
-	/*
-	for (int i = 0; i < lines.size(); i++) {
-		LineD line = lines[i];
-
-		CoordinateDouble start(line.row1, line.col1);
-		CoordinateDouble end(line.row2,line.col2 );
-		if (line_in_mask(mask, line)) {
-			DrawLine(src, start, end);
-			cv::namedWindow("Border", CV_WINDOW_AUTOSIZE);
-			cv::imshow("Border", src);
-			cv::waitKey(0);
-		}
-	}*/
-
-
+	//记录线段能量
 	SpareseMatrixD_Row energy_line;
+	//遍历每个网格
 	for (int row = 0; row < QuadnumRow; row++) {
 		for (int col = 0; col < QuadnumCol; col++) {
+			//获取当前网格内的所有线段
 			vector<LineD> linesegInquad = lineSeg[row][col];
+
+			//记录当前网格ID
 			int QuadID = row * QuadnumCol + col;
 			if (linesegInquad.size() == 0) {
-				continue;
+				continue;//网格内没线段，则跳过该网格
 			}
 			else {
 				Coordinate topleft(row, col);
@@ -770,23 +760,27 @@ SpareseMatrixD_Row get_line_mat(CVMat src, CVMat mask, vector<vector<CoordinateD
 					cout << endl<<QuadID<<" "<< linesegInquad.size();
 					system("pause");
 				}*/
+				//遍历当前网格内的所有线段
 				for (int k = 0; k < linesegInquad.size(); k++) {
 					linetmpnum++;
 					LineD line = linesegInquad[k];
-					CoordinateDouble linestart(line.row1, line.col1);
-					CoordinateDouble lineend(line.row2, line.col2);
+
+					CoordinateDouble linestart(line.row1, line.col1);//记录当前线段的起点
+					CoordinateDouble lineend(line.row2, line.col2);//记录当前线段的终点
 
 					//test
+					//获取双线性插值权重
 					BilinearWeights startWeight = get_bilinear_weights(linestart, topleft, mesh);//s t2n t t1n
-					MatrixXd start_W_mat = BilinearWeightsToMatrix(startWeight);
+					//将权重转化为矩阵
+					MatrixXd start_W_mat = BilinearWeightsToMatrix(startWeight);//2*8
 					BilinearWeights endWeight = get_bilinear_weights(lineend, topleft, mesh);
 					MatrixXd end_W_mat = BilinearWeightsToMatrix(endWeight);
 					//cout << startWeight.s << " " << startWeight.t << endl;//test
 					//test
-					VectorXd S = get_vertice(row, col, mesh);
-					Vector2d ans = start_W_mat * S - Vector2d(linestart.col, linestart.row);
+					VectorXd S = get_vertice(row, col, mesh);//8*1
+					Vector2d ans = start_W_mat * S - Vector2d(linestart.col, linestart.row);//2*1
 					Vector2d ans2 = end_W_mat * S - Vector2d(lineend.col, lineend.row);
-
+					//计算矩阵范数
 					if (ans2.norm() >= 0.0001 || ans.norm() >= 0.0001) {//error case
 						bad.push_back(true);
 						BilinearVec.push_back(make_pair(MatrixXd::Zero(2, 8), MatrixXd::Zero(2, 8)));
@@ -797,20 +791,24 @@ SpareseMatrixD_Row get_line_mat(CVMat src, CVMat mask, vector<vector<CoordinateD
 					bad.push_back(false);
 					//end test
 					//system("pause");
+
+					//获取当前线段的旋转角
 					double theta = rotate_theta[linetmpnum];
 					BilinearVec.push_back(make_pair(start_W_mat, end_W_mat));
+					//论文中的旋转矩阵
 					Matrix2d R;
 					R << cos(theta), -sin(theta),
 						sin(theta), cos(theta);
+					//**输入的方向向量矩阵，input orientation vector of this line segment
 					MatrixXd ehat(2, 1);
 					ehat << line.col1 - line.col2, line.row1 - line.row2;
 					MatrixXd tmp = (ehat.transpose()*ehat).inverse();
-					Matrix2d I = Matrix2d::Identity();
-					MatrixXd C = R * ehat*tmp*(ehat.transpose())*(R.transpose()) - I;
-					MatrixXd CT = C * (start_W_mat - end_W_mat);
-					C_row_stack = row_stack(C_row_stack, CT);
+					Matrix2d I = Matrix2d::Identity();//单位矩阵
+					MatrixXd C = R * ehat*tmp*(ehat.transpose())*(R.transpose()) - I;//论文中的C
+					MatrixXd CT = C * (start_W_mat - end_W_mat);//将C乘上权重矩阵，当前CT为2*8矩阵
+					C_row_stack = row_stack(C_row_stack, CT);//将CT连接上去，C_row_stack会记录当前网格下的所有线段的权重矩阵
 				}
-				energy_line = block_diag(energy_line, C_row_stack, QuadID, config);
+				energy_line = block_diag(energy_line, C_row_stack, QuadID, config);//往energy_line上不断连接C_row_stack，形成所有网格的线段的权重矩阵
 			}
 		}
 	}
