@@ -299,17 +299,17 @@ vector<LineD> lsd_detect(CVMat src, CVMat mask) {
 	for (int i = 0; i < num_lines; i++) {
 		//创建当前线段的对象
 		LineD line(out[i * 7 + 1], out[i * 7 + 0], out[i * 7 + 3], out[i * 7 + 2]);
-		//CoordinateDouble start(out[i * 7 + 1], out[i * 7 + 0]);
-		//CoordinateDouble end(out[i * 7 + 3], out[i * 7 + 2]);
+
 		if (line_in_mask(mask, line)) {
 			lines.push_back(line);//线段有效，则放入容器中
 		}
-
+		//**绘制线段
+		//CoordinateDouble start(out[i * 7 + 1], out[i * 7 + 0]);
+		//CoordinateDouble end(out[i * 7 + 3], out[i * 7 + 2]);
 		//DrawLine(src, start, end);
-		/*DrawLine(src, start, end);
-		cv::namedWindow("Border", CV_WINDOW_AUTOSIZE);
-		cv::imshow("Border", src);
-		cv::waitKey(0);*/
+		//cv::namedWindow("Border", CV_WINDOW_AUTOSIZE);
+		//cv::imshow("Border", src);
+		//cv::waitKey(0);
 	}
 
 	/*cv::namedWindow("Border", CV_WINDOW_AUTOSIZE);
@@ -664,7 +664,7 @@ BilinearWeights get_bilinear_weights(CoordinateDouble point, Coordinate upperLef
 			}
 			else {
 				// this case should not happen
-				cerr << "   Could not interpolate s weight for coordinate (" << point.col << "," << point.row << ")." << endl;
+				//cerr << "   Could not interpolate s weight for coordinate (" << point.col << "," << point.row << ")." << endl;
 				s = 0;
 			}
 		}
@@ -709,7 +709,7 @@ BilinearWeights get_bilinear_weights(CoordinateDouble point, Coordinate upperLef
 			}
 			else {
 				// this case should not happen
-				cerr << "   Could not interpolate t weight for coordinate (" << point.col << "," << point.row << ")." << endl;
+				//cerr << "   Could not interpolate t weight for coordinate (" << point.col << "," << point.row << ")." << endl;
 				t = 0;
 			}
 		}

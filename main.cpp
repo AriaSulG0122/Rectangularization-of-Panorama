@@ -111,7 +111,6 @@ void display(void){
 			CoordinateDouble global_left_bottom = outputmesh[row + 1][col];
 			CoordinateDouble global_right_bottom = outputmesh[row + 1][col + 1];
 			
-			//
 			glBegin(GL_QUADS);
 				glTexCoord2d(local_right_top.col, local_right_top.row); glVertex3d(global_right_top.col, -1*global_right_top.row, 0.0f);
 				glTexCoord2d(local_right_bottom.col, local_right_bottom.row); glVertex3d(global_right_bottom.col, -1*global_right_bottom.row, 0.0f);
@@ -121,30 +120,6 @@ void display(void){
 			
 		}
 	}
-	/*
-	int row = 18;
-	int col = 18;
-	CoordinateDouble local_left_top = mesh[row][col];
-	CoordinateDouble local_right_top = mesh[row][col + 1];
-	CoordinateDouble local_left_bottom = mesh[row + 1][col];
-	CoordinateDouble local_right_bottom = mesh[row + 1][col + 1];
-
-
-	CoordinateDouble global_left_top = outputmesh[row][col];
-	CoordinateDouble global_right_top = outputmesh[row][col + 1];
-	CoordinateDouble global_left_bottom = outputmesh[row + 1][col];
-	CoordinateDouble global_right_bottom = outputmesh[row + 1][col + 1];
-	glBegin(GL_QUADS);
-	glTexCoord2d(local_right_top.col, local_right_top.row);
-	glVertex3d(1, 0.7, 0.0f);
-	glTexCoord2d(local_right_bottom.col, local_right_bottom.row);
-	glVertex3d(1, -0.7, 0.0f);
-	glTexCoord2d(local_left_bottom.col, local_left_bottom.row); 	
-	glVertex3d(-1, -1, 0.0f);
-	glTexCoord2d(local_left_top.col, local_left_top.row); 
-	glVertex3d(-1, 1, 0.0f);
-	glEnd();
-	*/
 	glutSwapBuffers();
 }
 void printMat(CVMat mat, int prec) 
@@ -163,8 +138,12 @@ void printMat(CVMat mat, int prec)
     } 
 } 
 int main(int argc, char* argv[]) {
+	cout << "Begin the program, please input the file name of panoramic image:";
+	string s,filePath;
+	cin >> s;
+	filePath = "C:\\users\\33712\\Desktop\\MyRectangle\\MyRectangle\\testimg\\" + s;
 	//读取图片
-	img = cv::imread("C:\\users\\33712\\Desktop\\MyRectangle\\MyRectangle\\testimg\\2.jpg");
+	img = cv::imread(filePath);
 	//记录起始时间
 	double Time = (double)cvGetTickCount();
 	//cv::resize(img, img, cv::Size(0, 0), 0.5, 0.5);
@@ -197,11 +176,12 @@ int main(int argc, char* argv[]) {
 	//获取经过local warpping后的每个网格点的坐标
 	mesh = get_rectangle_mesh(scaled_img,config);
 	
-	//drawmesh(wrapped_img, mesh, config);
+	//drawmesh(wrapped_img, mesh, config);//绘制网格线
 	//system("pasue");
 	
 	//进行warp back，得到原始图像的网格点信息
 	wrap_mesh_back(mesh,displacementMap,config);
+	//drawmesh(scaled_img, mesh, config);//绘制网格线
 	cout << "Finish wrap back. Begin global warpping."<<endl;
 
 	//计算每个网格点的shape energy属性，并存入到shape_energy中
@@ -222,16 +202,18 @@ int main(int argc, char* argv[]) {
 	vector<vector<vector<LineD>>> LineSeg = init_line_seg(scaled_img, mask, config, line_flatten, mesh, id_theta,rotate_theta);
 	
 	//按照论文中提到的，进行十轮迭代
-	cout << "Begin iteration..."<<endl;
-	//cout << "Begin iteration...Please"<<endl;
-	for (int iter = 1; iter <= 10; iter++) {
+	//cout << "Begin iteration..."<<endl;
+	int itNum = 10;
+	cout << "Begin iteration...Please input the number of iteration:";
+	cin >> itNum;
+	for (int iter = 1; iter <= itNum; iter++) {
 		cout << iter << endl;
 		int Nl = 0;
 		vector<pair<MatrixXd, MatrixXd>> BilinearVec;//need to update
 		vector<bool> bad;
 		//获取line energy，见论文公式5、6
 		SpareseMatrixD_Row line_energy = get_line_mat(scaled_img, mask, mesh, rotate_theta, LineSeg, BilinearVec, config, Nl, bad);
-		cout << "Finish get line energy." << "  " << Nl << endl;
+		cout << "Finish get line energy.";
 		//combine
 		double Nq = config.meshQuadRow*config.meshQuadCol;//总的网格数
 		double lambdaB = INF;//boundary energy的权重
@@ -312,70 +294,18 @@ int main(int argc, char* argv[]) {
 		//根据角度和以及线段数计算每个bin的角度平均值theta_mean
 		for (int ii = 0; ii < thetagroup.size(); ii++) {
 			thetagroup(ii) /= thetagroupcnt(ii);
-
+			cout << thetagroup(ii) << " ";
 		}
 		//更新每条线段的旋转角theta
 		for (int ii = 0; ii < rotate_theta.size(); ii++) {
 			rotate_theta[ii] = thetagroup[id_theta[ii].first];
+			//cout << rotate_theta[ii] << " ";
 		}
+		cout << endl;
 	}//end interator
-	//cout << x;
-	//system("pause");
-	//vector<vector<CoordinateDouble>> outputmesh = vector_to_mesh(x,config);
-	//drawmesh(scaled_img, outputmesh, config);
-	//system("pause");
+
 	enlarge_mesh(mesh, 2, config);
 	enlarge_mesh(outputmesh, 2, config);
-	//CVMat outputimg = CVMat::zeros(img.size(), CV_32FC3);
-	//CVMat ouputcnt = CVMat::zeros(img.size(), CV_32FC3);
-
-
-	/*
-	for (int row = 0; row < config.meshQuadRow; row++) {
-		cout << row << endl;
-		for (int col = 0; col < config.meshQuadCol; col++) {
-
-			VectorXd Vq = get_vertice(row, col, outputmesh);//x0,y0,x1,y1
-			VectorXd Vo = get_vertice(row, col, mesh);//x0,y0
-			double col_len = max(Vq(0), max(Vq(2), max(Vq(4), Vq(6)))) - min(Vq(0), min(Vq(2), min(Vq(4), Vq(6))));
-			double row_len = max(Vq(1), max(Vq(3), max(Vq(5), Vq(7)))) - min(Vq(1), min(Vq(3), min(Vq(5), Vq(7))));
-			double col_step = 1 / (4 * col_len);
-			double row_step = 1 / (4 * row_len);
-			//system("pause");
-			for (double i = 0; i < 1; i += row_step) {
-				for (double j = 0; j < 1; j += col_step) {
-					double v1w = 1 - i - j + i * j;
-					double v2w = j - i * j;
-					double v3w = i - i * j;
-					double v4w = i * j;
-					MatrixXd matt(2, 8);
-					matt << v1w, 0, v2w, 0, v3w, 0, v4w, 0,
-						0, v1w, 0, v2w, 0, v3w, 0, v4w;
-					VectorXd pout = matt * Vq;
-					VectorXd pref = matt * Vo;
-					if (int(pout(1)) >= 0 && int(pout(0)) >= 0 && int(pout(1)) < img.rows&&int(pout(0)) < img.cols) {
-						colorPixel pixel = img.at<colorPixel>(int(pref(1)), int(pref(0)));
-						cv::Vec3f pixelf = cv::Vec3f(float(pixel[0]), float(pixel[1]), float(pixel[2]));
-						outputimg.at<cv::Vec3f>(int(pout(1)), int(pout(0))) = outputimg.at<cv::Vec3f>(int(pout(1)), int(pout(0))) + pixelf;
-						ouputcnt.at<cv::Vec3f>(int(pout(1)), int(pout(0))) += cv::Vec3f(1, 1, 1);
-					}
-					else {
-						//cout << "unfill";
-					}
-				}
-			}
-		}
-	}
-	*/
-	//CVMat finaloutput = outputimg / (255 * ouputcnt);
-	
-	//drawmesh(finaloutput, outputmesh, config);
-	//drawmesh(finaloutput, outpu, config);
-	//fill_image(finaloutput);
-	/*cv::namedWindow("Border", CV_WINDOW_AUTOSIZE);
-	cv::imshow("Border", finaloutput);
-	cv::waitKey(0);*/
-
 
 	//glut
 	glutInit(&argc, argv);

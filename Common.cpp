@@ -140,7 +140,7 @@ void DrawLine(CVMat& img, LineD line) {
 	int lineType = 1;
 	cv::line(img, start, end, cv::Scalar(0, 255, 0), thickness, lineType);
 }
-
+//»æÖÆÍø¸ñÏß
 CVMat drawmesh(CVMat src, vector<vector<CoordinateDouble>> mesh, Config config) {
 	int meshLineRow = config.meshLineRow;
 	int meshLineCol = config.meshLineCol;
@@ -162,11 +162,14 @@ CVMat drawmesh(CVMat src, vector<vector<CoordinateDouble>> mesh, Config config) 
 				CoordinateDouble down = mesh[row + 1][col];
 				DrawLine(src, now, down);
 			}
+			cv::namedWindow("Mesh", CV_WINDOW_AUTOSIZE);
+			cv::imshow("Mesh", src);
+			cv::waitKey(0);
 		}
 	}
-	cv::namedWindow("Mesh", CV_WINDOW_AUTOSIZE);
+/*	cv::namedWindow("Mesh", CV_WINDOW_AUTOSIZE);
 	cv::imshow("Mesh", src);
-	cv::waitKey(0);
+	cv::waitKey(0)*/;
 	return src;
 }
 

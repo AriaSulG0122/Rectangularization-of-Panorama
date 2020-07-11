@@ -1,5 +1,5 @@
 #include"LocalWrapping.h"
-
+using namespace cv;
 bool cmp(const pair<int, float> a, const pair<int, float> b) {
 	return a.second < b.second;
 }
@@ -373,16 +373,7 @@ CVMat Insert_local_seam(CVMat src, CVMat& mask, int* seam, SeamDirection seamdir
 
 	int begin = begin_end.first;//起始行坐标
 	int end = begin_end.second;//终止行坐标
-	/*
-	if(seamdirection=)
-	for (int row = begin; row <= end; row++) {
-	int local_row = row - begin;
-	src.at<Vec3b>(row, seam[local_row]) = Vec3b(0, 0, 255);
-	}
-	namedWindow("insert_seam", CV_WINDOW_AUTOSIZE);
-	imshow("insert_seam", src);
-	waitKey(0);
-	*/
+
 	int rows = src.rows;//行数
 	int cols = src.cols;//列数
 	//遍历局部图
@@ -468,15 +459,7 @@ int* Get_local_seam(CVMat src, CVMat mask, SeamDirection seamdirection, pair<int
 	CVMat local_energy = Sobel_img(local_img);
 	CVMat local_energy_32f;
 	local_energy.convertTo(local_energy_32f, CV_32F);
-	//Mat local_energy_32f = get_energy(src);
-	/*
-	for (int row = 0; row < rows; row++) {
-	for (int col = 0; col < cols; col++) {
-	cout << local_energy_32f.at<float>(row, col)<<" ";
-	}
-	cout << endl;
-	}*/
-	//system("pause");
+
 	//论文中提到，在选择seam线时，对于空缺部分的能量设置为无穷，避免seam线选择到空缺部分
 	for (int row = 0; row < range; row++) {
 		for (int col = col_start; col <= col_end; col++) {
@@ -484,19 +467,11 @@ int* Get_local_seam(CVMat src, CVMat mask, SeamDirection seamdirection, pair<int
 				local_energy_32f.at<float>(row, col) = INF;
 			}
 		}
-	}/*
-	 namedWindow("local_seam2", CV_WINDOW_AUTOSIZE);
-	 imshow("local_seam2", local_energy);
-	 waitKey(0);
-	 *//*
-	 for (int row = 0; row < range; row++) {
-	 for (int col = col_start; col <= col_end; col++) {
-	 if (Is_transparent(local_img.at<Vec3b>(row, col)) == true) {
-	 local_energy_32f.at<float>(row, col) = INF;
-	 }
-	 }
-	 }*/
+	}
 
+	 //namedWindow("local_seam2", CV_WINDOW_AUTOSIZE);
+	 //imshow("local_seam2", local_energy);
+	 //waitKey(0);
 
 	CVMat tmpenergy;//记录能量图
 	local_energy_32f.copyTo(tmpenergy);
@@ -564,24 +539,18 @@ int* Get_local_seam(CVMat src, CVMat mask, SeamDirection seamdirection, pair<int
 			}
 		}
 	}
-	/*
-	for (int row = 0; row < range; row++) {
-		local_energy_32f.at<float>(row, seam[row]) = INF;
-	}*/
 	//给最小能量线上的像素点赋值
 	for (int row = 0; row < range; row++) {
 		local_img.at<colorPixel>(row, seam[row]) = colorPixel(255, 255, 0);
 	}
-
-
-	/*
-	cv::namedWindow("local_seam", CV_WINDOW_AUTOSIZE);
-	cv::imshow("local_seam", local_img);
+	
+	//cv::namedWindow("local_seam", CV_WINDOW_AUTOSIZE);
+	//cv::imshow("local_seam", local_img);
 	//cv::namedWindow("local_seam2", CV_WINDOW_AUTOSIZE);
 	//cv::imshow("local_seam2", mask);
-	cv::waitKey(0);
+	//cv::waitKey(0);
 	//system("pause");
-	*/
+	
 	return seam;
 }
 
