@@ -9,7 +9,7 @@
 #include <opencv2\highgui\highgui.hpp>
 using namespace cv;
 
-#define WindowTitle  "OpenGL纹理测试"
+#define WindowTitle  "Rectangling Panoramic Images"
 #define GL_BGR_EXT 0x80E0
 #define GL_BGRA_EXT 0x80E1
 GLuint texGround;
@@ -69,12 +69,14 @@ GLuint matToTexture(cv::Mat mat, GLenum minFilter = GL_LINEAR,
 
 	return textureID;
 }
-//
+//**显示图像
 void display(void){
 	glLoadIdentity();
 	// 清除屏幕
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//加载纹理数据，为img
 	glBindTexture(GL_TEXTURE_2D, texGround);
+	//遍历每个网格
 	for (int row = 0; row < 20; row++) {
 		for (int col = 0; col < 20; col++) {
 			CoordinateDouble &coord = outputmesh[row][col];
@@ -98,6 +100,7 @@ void display(void){
 	}
 	//system("pause");
 	
+	//遍历每个网格
 	for (int row = 0; row < 19; row++) {
 		for (int col = 0; col < 19; col++) {
 			CoordinateDouble local_left_top = mesh[row][col];
@@ -111,6 +114,7 @@ void display(void){
 			CoordinateDouble global_left_bottom = outputmesh[row + 1][col];
 			CoordinateDouble global_right_bottom = outputmesh[row + 1][col + 1];
 			
+			//glTexCoord2d用于设置原mesh上的四个坐标，而glVertex3d则用于设置输出mesh上的四个坐标
 			glBegin(GL_QUADS);
 				glTexCoord2d(local_right_top.col, local_right_top.row); glVertex3d(global_right_top.col, -1*global_right_top.row, 0.0f);
 				glTexCoord2d(local_right_bottom.col, local_right_bottom.row); glVertex3d(global_right_bottom.col, -1*global_right_bottom.row, 0.0f);
@@ -208,6 +212,7 @@ int main(int argc, char* argv[]) {
 	cout << "Begin iteration...Please input the number of iteration:";
 	cin >> itNum;
 	Time = (double)cvGetTickCount();
+
 	for (int iter = 1; iter <= itNum; iter++) {
 		cout << iter << endl;
 		int Nl = 0;//线段数量
