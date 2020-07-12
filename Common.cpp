@@ -69,7 +69,7 @@ VectorXd mesh_to_vector(vector<vector<CoordinateDouble>> mesh, Config config) {
 	return vec;
 }
 
-//将线性的向量转化为矩阵
+//将线性的向量转化为矩阵，这里就是转化为网格点
 vector<vector<CoordinateDouble>> vector_to_mesh(VectorXd x, Config config) {
 	int numMeshRow = config.meshLineRow;
 	int numMeshCol = config.meshLineCol;

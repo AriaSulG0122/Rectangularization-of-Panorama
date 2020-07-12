@@ -150,10 +150,11 @@ int main(int argc, char* argv[]) {
 	//记录缩放后的图像
 	CVMat scaled_img;
 	//对图像进行缩放
-	cv::resize(img, scaled_img, cv::Size(0, 0), 0.5, 0.5);
+	cv::resize(img, scaled_img, cv::Size(0, 0), 1, 1);
+	cout << "Pic Size:  Height:" << scaled_img.rows << "  Width:" << scaled_img.cols << endl;
 	//记录缩放后图像的行列数以及网格线数
 	Config config(scaled_img.rows,scaled_img.cols,20,20);
-	//获取遮罩图像
+	//获取遮罩图像轮廓
 	CVMat mask = Mask_contour(scaled_img);
 	CVMat tmpmask;
 	mask.copyTo(tmpmask);
@@ -179,7 +180,7 @@ int main(int argc, char* argv[]) {
 	//drawmesh(wrapped_img, mesh, config);//绘制网格线
 	//system("pasue");
 	
-	//进行warp back，得到原始图像的网格点信息
+	//进行warp back，得到原始图像的网格点信息，记录在mesh中
 	wrap_mesh_back(mesh,displacementMap,config);
 	//drawmesh(scaled_img, mesh, config);//绘制网格线
 	cout << "Finish wrap back. Begin global warpping."<<endl;
@@ -187,37 +188,39 @@ int main(int argc, char* argv[]) {
 	//计算每个网格点的shape energy属性，并存入到shape_energy中
 	SpareseMatrixD_Row shape_energy = get_shape_mat(mesh,config);
 	cout << "Finish get shape energy."<<endl;
-	//8*2
+	//8*2，将网格点置1
 	SpareseMatrixD_Row Q = get_vertex_to_shape_mat(mesh,config);
 	//计算Border Constraint属性，并记录在组合容器border_pos_val中
-	//组合的第一个元素为2n*2n，表示边界点的某个方向的坐标
-	//组合的第二个元素为2n*1（一维），表示边界点某个方向的坐标的取值
+	//组合的第一个元素为2n*2n，为1表示该网格点属于边界点
+	//组合的第二个元素为2n*1（一维），表示该网格点的取值（取值决定了点属于上下左右哪个边界）
 	pair<SpareseMatrixD_Row, VectorXd> border_pos_val = get_boundary_mat(scaled_img, mesh, config);
 	cout << "Finish get border constraint" << endl;
 	
-	vector<pair<int, double>>id_theta;//存储bin的编号和theta的值
+	vector<pair<int, double>>id_theta;//记录了每条线段对应的bin容器与角度theta的对应值
 	vector < LineD > line_flatten;//存储划分后的一维的线段
-	vector<double> rotate_theta;
-	//找到图像中的线条，按照网格对其进行分割，LineSeg记录了每个容器中的线段,id_theta则记录了容器与角度的对应值
+	vector<double> rotate_theta;//记录每条线段的旋转角
+	//找到图像中的线条，按照网格对其进行分割，LineSeg记录了每个容器中的线段
 	vector<vector<vector<LineD>>> LineSeg = init_line_seg(scaled_img, mask, config, line_flatten, mesh, id_theta,rotate_theta);
-	
+	double Time2 = (double)cvGetTickCount()- Time;
 	//按照论文中提到的，进行十轮迭代
 	//cout << "Begin iteration..."<<endl;
 	int itNum = 10;
 	cout << "Begin iteration...Please input the number of iteration:";
 	cin >> itNum;
+	Time = (double)cvGetTickCount();
 	for (int iter = 1; iter <= itNum; iter++) {
 		cout << iter << endl;
-		int Nl = 0;
+		int Nl = 0;//线段数量
 		vector<pair<MatrixXd, MatrixXd>> BilinearVec;//need to update
 		vector<bool> bad;
 		//获取line energy，见论文公式5、6
 		SpareseMatrixD_Row line_energy = get_line_mat(scaled_img, mask, mesh, rotate_theta, LineSeg, BilinearVec, config, Nl, bad);
 		cout << "Finish get line energy.";
 		//combine
-		double Nq = config.meshQuadRow*config.meshQuadCol;//总的网格数
+		double Nq = sqrt(config.meshQuadRow*config.meshQuadCol);//总的网格数
 		double lambdaB = INF;//boundary energy的权重
-		double lambdaL = 100;//line energy的权重，按照论文，设置为100
+		double lambdaL = sqrt(100);//line energy的权重，按照论文，设置为100
+		Nl = sqrt(Nl);//****注意，这里的几个sqrt加上能够优化结果
 		SpareseMatrixD_Row shape = (1 / Nq)*(shape_energy*Q);//形状能量，论文公式2
 		SpareseMatrixD_Row boundary = lambdaB * border_pos_val.first;//边界能量
 		SpareseMatrixD_Row line = (lambdaL / Nl)*(line_energy*Q);//线条能量，论文公式7
@@ -234,7 +237,7 @@ int main(int argc, char* argv[]) {
 		
 		VectorXd x;
 		CSolve *p_A = new CSolve(A);
-		x = p_A->solve(b);//求解Ax=b，求得x为一维的2n数组
+		x = p_A->solve(b);//求解Ax=b，求得x为一维的2n数组，代表新的网格点位置
 		//update mesh，根据x获取新的矩阵输出
 		outputmesh = vector_to_mesh(x, config);
 		//update theta
@@ -294,18 +297,19 @@ int main(int argc, char* argv[]) {
 		//根据角度和以及线段数计算每个bin的角度平均值theta_mean
 		for (int ii = 0; ii < thetagroup.size(); ii++) {
 			thetagroup(ii) /= thetagroupcnt(ii);
-			cout << thetagroup(ii) << " ";
+			//输出每个bin的平均角度
+			//cout << thetagroup(ii) << " ";
 		}
 		//更新每条线段的旋转角theta
 		for (int ii = 0; ii < rotate_theta.size(); ii++) {
-			rotate_theta[ii] = thetagroup[id_theta[ii].first];
+			rotate_theta[ii] = thetagroup[id_theta[ii].first];//id_theta[ii].first为当前线段对应的容器
 			//cout << rotate_theta[ii] << " ";
 		}
 		cout << endl;
 	}//end interator
 
-	enlarge_mesh(mesh, 2, config);
-	enlarge_mesh(outputmesh, 2, config);
+	/*enlarge_mesh(mesh, 2, config);
+	enlarge_mesh(outputmesh, 2, config);*/
 
 	//glut
 	glutInit(&argc, argv);
@@ -317,7 +321,7 @@ int main(int argc, char* argv[]) {
 	glEnable(GL_TEXTURE_2D);    // 启用纹理
 	texGround = matToTexture(img);
 	glutDisplayFunc(&display);   //注册函数 
-	Time = (double)cvGetTickCount() - Time;
+	Time = (double)cvGetTickCount() - Time + Time2;
 
 	printf("run time = %gms\n", Time / (cvGetTickFrequency() * 1000));//毫秒
 	glutMainLoop(); //循环调用

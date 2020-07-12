@@ -29,9 +29,18 @@ CVMat Sobel_img(CVMat src) {
 	CVMat gray;
 	cv::cvtColor(src, gray, CV_BGR2GRAY);//将BGR图转为灰度图
 	CVMat grad_x, grad_y, dst;
-	//根据Sobel因子计算灰度图能量值
+	//根据Sobel因子计算灰度图能量值，分别算x轴和y轴的
 	cv::Sobel(gray, grad_x, CV_8U, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT);
 	cv::Sobel(gray, grad_y, CV_8U, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT);
+
+	//namedWindow("MySobel", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
+ //   imshow("MySobel", grad_x);//在MyWindow的窗中中显示存储在img中的图片
+ //   waitKey(0);//等待直到有键按下
+ //   destroyWindow("MySobel");//销毁MyWindow的窗口
+	//namedWindow("MySobel", CV_WINDOW_AUTOSIZE);//创建一个名字为MyWindow的窗口
+ //   imshow("MySobel", grad_y);//在MyWindow的窗中中显示存储在img中的图片
+ //   waitKey(0);//等待直到有键按下
+ //   destroyWindow("MySobel");//销毁MyWindow的窗口
 	//考虑权重
 	addWeighted(grad_x, 0.5, grad_y, 0.5, 0, dst);
 	return dst;

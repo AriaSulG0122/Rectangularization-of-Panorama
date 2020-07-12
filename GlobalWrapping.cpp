@@ -95,12 +95,16 @@ SpareseMatrixD_Row get_vertex_to_shape_mat(vector<vector<CoordinateDouble>> mesh
 		for (int col = 0; col < numQuadCol; col++) {
 			int quadid = 8 * (row*numQuadCol + col);//当前网格编号
 			int topleftvertexId = 2 * (row*numLineCol + col);//当前网格左上的网格点的编号
+			//左上点的x和y
 			Q.insert(quadid, topleftvertexId) = 1;
 			Q.insert(quadid + 1, topleftvertexId + 1) = 1;
+			//右上点的x和y
 			Q.insert(quadid + 2, topleftvertexId + 2) = 1;
 			Q.insert(quadid + 3, topleftvertexId + 3) = 1;
+			//左下点的x和y
 			Q.insert(quadid + 4, topleftvertexId + 2 * numLineCol) = 1;
 			Q.insert(quadid + 5, topleftvertexId + 2 * numLineCol + 1) = 1;
+			//右下点的x和y
 			Q.insert(quadid + 6, topleftvertexId + 2 * numLineCol + 2) = 1;
 			Q.insert(quadid + 7, topleftvertexId + 2 * numLineCol + 3) = 1;
 		}
@@ -294,7 +298,10 @@ vector<LineD> lsd_detect(CVMat src, CVMat mask) {
 	double * out;
 	int num_lines;
 	//通过lsd进行线段检测，得到线段数num_lines以及每条线段对应的顶点坐标
+	double Time = (double)cvGetTickCount();
 	out = lsd(&num_lines, image, gray_img.cols, gray_img.rows);
+	Time = (double)cvGetTickCount() - Time;
+	printf("run time of lsd = %gms\n", Time / (cvGetTickFrequency() * 1000));//毫秒
 	//遍历每条线段
 	for (int i = 0; i < num_lines; i++) {
 		//创建当前线段的对象
@@ -502,17 +509,17 @@ vector<vector<vector<LineD>>> segment_line_in_quad(CVMat src, vector<LineD> line
 			//DrawLine(src, lefttop, leftbottom);
 			//DrawLine(src, righttop, rightbottom);
 			//DrawLine(src, leftbottom, rightbottom);
-			/*for (int i = 0; i < lineInQuad.size(); i++) {
-				LineD line = lineInQuad[i];
-				DrawLine(src2, line);
-			}
-			cv::namedWindow("quad", CV_WINDOW_AUTOSIZE);
-			cv::imshow("quad", src);
-			cv::namedWindow("line", CV_WINDOW_AUTOSIZE);
-			cv::imshow("line", src2);
-
-			cv::waitKey(0);
-			*/
+			//绘制线段
+			//for (int i = 0; i < lineInQuad.size(); i++) {
+			//	LineD line = lineInQuad[i];
+			//	DrawLine(src2, line);
+			//}
+			//cv::namedWindow("quad", CV_WINDOW_AUTOSIZE);
+			//cv::imshow("quad", src);
+			//cv::namedWindow("line", CV_WINDOW_AUTOSIZE);
+			//cv::imshow("line", src2);
+			//cv::waitKey(0);
+			
 		}
 		//得到全部网格的线段容器
 		quad_line_seg.push_back(vec_row);
@@ -804,7 +811,7 @@ SpareseMatrixD_Row get_line_mat(CVMat src, CVMat mask, vector<vector<CoordinateD
 					ehat << line.col1 - line.col2, line.row1 - line.row2;
 					MatrixXd tmp = (ehat.transpose()*ehat).inverse();
 					Matrix2d I = Matrix2d::Identity();//单位矩阵
-					MatrixXd C = R * ehat*tmp*(ehat.transpose())*(R.transpose()) - I;//论文中的C
+					MatrixXd C = R * ehat*tmp*(ehat.transpose())*(R.transpose()) - I;//论文中的C，2*2
 					MatrixXd CT = C * (start_W_mat - end_W_mat);//将C乘上权重矩阵，当前CT为2*8矩阵
 					C_row_stack = row_stack(C_row_stack, CT);//将CT连接上去，C_row_stack会记录当前网格下的所有线段的权重矩阵
 				}
